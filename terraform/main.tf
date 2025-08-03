@@ -109,8 +109,9 @@ resource "helm_release" "cert_manager" {
     }
   ]
 }
+resource "kubernetes_manifest" "letsencrypt_issuer" {
+  provider = kubernetes-alpha
 
-resource "kubernetes-alpha_manifest" "letsencrypt_issuer" {
   depends_on = [
     module.eks,
     helm_release.cert_manager
