@@ -8,7 +8,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Serve with NGINX
-FROM nginx:alpine
+FROM nginx:latest
 
 # Copy custom NGINX config (supports SPA routing + caching)
 COPY nginx.conf /etc/nginx/conf.d/default.conf

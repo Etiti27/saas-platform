@@ -7,52 +7,57 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  CLUSTER_NAME: my-eks-cluster-name
   IMAGE: obinna27/saas-frontend:v1.0.0
   DOCKERHUB_USERNAME: obinna27
 
 jobs:
   deploy:
+    name: Deploy Frontend to EKS
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: 🔄 Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: ⚙️ Set up Docker Buildx (for multi-arch builds)
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to DockerHub
+      - name: 🔐 Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & Push Docker Image
+      - name: 🏗️ Build and Push Docker Image to DockerHub
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./frontend
           file: ./frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.IMAGE }}
 
-      - name: Configure AWS Credentials
+      - name: 🔐 Configure AWS Credentials for Deployment
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Terraform Init
+      - name: 🧱 Terraform Init (EKS Infrastructure)
         run: terraform init
         working-directory: ./terraform
 
-      - name: Terraform Apply
+      - name: ☁️ Terraform Apply (Provision EKS Cluster)
         run: terraform apply -auto-approve
         working-directory: ./terraform
 
-      - name: Update kubeconfig
+      - name: 🔧 Update kubeconfig to Access EKS
         run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
 
-      - name: Deploy React Frontend to EKS
+      - name: 🚀 Deploy Frontend to EKS (kubectl apply)
         run: kubectl apply -f k8s/frontend.yml
+
+      - name: ⏳ Wait for Frontend Deployment to Complete
+        run: kubectl rollout status deployment/frontend -n default
