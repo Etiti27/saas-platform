@@ -1,6 +1,4 @@
 terraform {
-  required_version = ">= 1.3.0"
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -8,20 +6,25 @@ terraform {
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = ">= 2.7.0"
+      version = ">= 2.20.0"
+    }
+    kubernetes-alpha = {
+      source  = "hashicorp/kubernetes-alpha"
+      version = ">= 0.6.0"
     }
     helm = {
       source  = "hashicorp/helm"
       version = ">= 2.13.0"
     }
   }
+
+  required_version = ">= 1.3.0"
 }
 
 provider "aws" {
   region = var.region
 }
 
-# VPC module
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
@@ -37,7 +40,6 @@ module "vpc" {
   single_nat_gateway = true
 }
 
-# EKS module
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
@@ -59,37 +61,36 @@ module "eks" {
   enable_irsa = true
 }
 
-# EKS auth token
 data "aws_eks_cluster_auth" "cluster" {
   name = module.eks.cluster_name
 }
 
-# Define local kubeconfig for reuse
-locals {
-  kubeconfig = {
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+
+  depends_on = [module.eks]
+}
+
+provider "helm" {
+  kubernetes {
     host                   = module.eks.cluster_endpoint
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
     token                  = data.aws_eks_cluster_auth.cluster.token
   }
+
+  depends_on = [module.eks]
 }
 
-# Kubernetes provider
-provider "kubernetes" {
-  host                   = local.kubeconfig.host
-  cluster_ca_certificate = local.kubeconfig.cluster_ca_certificate
-  token                  = local.kubeconfig.token
+provider "kubernetes-alpha" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
 
-  experiments {
-    manifest_resource = true
-  }
+  depends_on = [module.eks]
 }
 
-# Helm provider
-provider "helm" {
-  kubernetes = local.kubeconfig
-}
-
-# NGINX Ingress Helm Chart
 resource "helm_release" "nginx_ingress" {
   name             = "nginx-ingress"
   namespace        = "ingress-nginx"
@@ -99,7 +100,6 @@ resource "helm_release" "nginx_ingress" {
   version          = "4.10.0"
 }
 
-# Cert Manager Helm Chart
 resource "helm_release" "cert_manager" {
   name             = "cert-manager"
   namespace        = "cert-manager"
@@ -116,8 +116,9 @@ resource "helm_release" "cert_manager" {
   ]
 }
 
-# Let's Encrypt ClusterIssuer (via kubernetes_manifest)
 resource "kubernetes_manifest" "letsencrypt_issuer" {
+  provider = kubernetes-alpha
+
   depends_on = [
     module.eks,
     helm_release.cert_manager
@@ -136,13 +137,15 @@ resource "kubernetes_manifest" "letsencrypt_issuer" {
         privateKeySecretRef = {
           name = "letsencrypt-prod-key"
         }
-        solvers = [{
-          http01 = {
-            ingress = {
-              class = "nginx"
+        solvers = [
+          {
+            http01 = {
+              ingress = {
+                class = "nginx"
+              }
             }
           }
-        }]
+        ]
       }
     }
   }
