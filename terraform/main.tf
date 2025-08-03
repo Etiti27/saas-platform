@@ -10,13 +10,15 @@ terraform {
     }
     kubernetes-alpha = {
       source  = "hashicorp/kubernetes-alpha"
-      version = ">= 0.7.0"
+      version = "0.6.0"
     }
     helm = {
       source  = "hashicorp/helm"
       version = ">= 2.13.0"
     }
   }
+
+  required_version = ">= 1.3.0"
 }
 
 provider "aws" {
@@ -69,18 +71,18 @@ provider "kubernetes" {
   token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
-provider "kubernetes-alpha" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
-
 provider "helm" {
   kubernetes = {
     host                   = module.eks.cluster_endpoint
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
     token                  = data.aws_eks_cluster_auth.cluster.token
   }
+}
+
+provider "kubernetes-alpha" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
 resource "helm_release" "nginx_ingress" {
@@ -100,15 +102,15 @@ resource "helm_release" "cert_manager" {
   create_namespace = true
   version          = "v1.14.3"
 
-  set = [{
-    name  = "installCRDs"
-    value = "true"
-  }]
+  set = [
+    {
+      name  = "installCRDs"
+      value = "true"
+    }
+  ]
 }
 
-resource "kubernetes_manifest" "letsencrypt_issuer" {
-  provider = kubernetes-alpha
-
+resource "kubernetes-alpha_manifest" "letsencrypt_issuer" {
   depends_on = [
     module.eks,
     helm_release.cert_manager
@@ -127,13 +129,15 @@ resource "kubernetes_manifest" "letsencrypt_issuer" {
         privateKeySecretRef = {
           name = "letsencrypt-prod-key"
         }
-        solvers = [{
-          http01 = {
-            ingress = {
-              class = "nginx"
+        solvers = [
+          {
+            http01 = {
+              ingress = {
+                class = "nginx"
+              }
             }
           }
-        }]
+        ]
       }
     }
   }
