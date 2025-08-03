@@ -49,7 +49,7 @@ provider "kubernetes" {
 }
 
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = module.eks.cluster_endpoint
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
     token                  = data.aws_eks_cluster_auth.cluster.token
@@ -57,21 +57,21 @@ provider "helm" {
 }
 
 resource "helm_release" "nginx_ingress" {
-  name       = "nginx-ingress"
-  namespace  = "ingress-nginx"
-  chart      = "ingress-nginx"
-  repository = "https://kubernetes.github.io/ingress-nginx"
+  name             = "nginx-ingress"
+  namespace        = "ingress-nginx"
+  chart            = "ingress-nginx"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
   create_namespace = true
-  version    = "4.10.0"
+  version          = "4.10.0"
 }
 
 resource "helm_release" "cert_manager" {
-  name       = "cert-manager"
-  namespace  = "cert-manager"
-  repository = "https://charts.jetstack.io"
-  chart      = "cert-manager"
+  name             = "cert-manager"
+  namespace        = "cert-manager"
+  repository       = "https://charts.jetstack.io"
+  chart            = "cert-manager"
   create_namespace = true
-  version    = "v1.14.3"
+  version          = "v1.14.3"
 
   set {
     name  = "installCRDs"
@@ -104,4 +104,3 @@ resource "kubernetes_manifest" "letsencrypt_issuer" {
     }
   }
 }
-
