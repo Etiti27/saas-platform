@@ -80,6 +80,10 @@ resource "helm_release" "cert_manager" {
 }
 
 resource "kubernetes_manifest" "letsencrypt_issuer" {
+    depends_on = [
+    module.eks,
+    helm_release.cert_manager
+  ]
   manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"
