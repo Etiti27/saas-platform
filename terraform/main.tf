@@ -73,10 +73,10 @@ resource "helm_release" "cert_manager" {
   create_namespace = true
   version          = "v1.14.3"
 
-  set {
+  set = [{
     name  = "installCRDs"
     value = "true"
-  }
+  }]
 }
 
 resource "kubernetes_manifest" "letsencrypt_issuer" {
