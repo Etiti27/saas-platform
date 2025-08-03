@@ -1,3 +1,24 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 4.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.20.0"
+    }
+    kubernetes-alpha = {
+      source  = "hashicorp/kubernetes-alpha"
+      version = ">= 0.7.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = ">= 2.13.0"
+    }
+  }
+}
+
 provider "aws" {
   region = var.region
 }
@@ -48,6 +69,12 @@ provider "kubernetes" {
   token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
+provider "kubernetes-alpha" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+}
+
 provider "helm" {
   kubernetes = {
     host                   = module.eks.cluster_endpoint
@@ -80,10 +107,13 @@ resource "helm_release" "cert_manager" {
 }
 
 resource "kubernetes_manifest" "letsencrypt_issuer" {
-    depends_on = [
+  provider = kubernetes-alpha
+
+  depends_on = [
     module.eks,
     helm_release.cert_manager
   ]
+
   manifest = {
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"
