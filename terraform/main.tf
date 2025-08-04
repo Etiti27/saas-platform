@@ -14,10 +14,6 @@ terraform {
       source  = "hashicorp/helm"
       version = ">= 2.13.0"
     }
-    kubernetes-alpha = {
-      source  = "hashicorp/kubernetes-alpha"
-      version = ">= 0.5.0"
-    }
   }
 }
 
@@ -69,6 +65,10 @@ provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
   token                  = data.aws_eks_cluster_auth.cluster.token
+
+  experiments {
+    manifest_resource = true
+  }
 }
 
 provider "helm" {
@@ -77,12 +77,6 @@ provider "helm" {
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
     token                  = data.aws_eks_cluster_auth.cluster.token
   }
-}
-
-provider "kubernetes-alpha" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
 resource "helm_release" "nginx_ingress" {
@@ -111,8 +105,6 @@ resource "helm_release" "cert_manager" {
 }
 
 resource "kubernetes_manifest" "letsencrypt_issuer" {
-  provider = kubernetes-alpha
-
   depends_on = [
     helm_release.cert_manager
   ]
