@@ -69,11 +69,21 @@ jobs:
         run: terraform apply -auto-approve
         working-directory: ./terraform
 
+      - name: 📥 Install kubectl & aws-iam-authenticator
+        run: |
+          curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.29.0/2024-03-22/bin/linux/amd64/kubectl
+          chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/kubectl
+          curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.29.0/2024-03-22/bin/linux/amd64/aws-iam-authenticator
+          chmod +x aws-iam-authenticator && sudo mv aws-iam-authenticator /usr/local/bin/aws-iam-authenticator
+
       - name: 🔧 Update kubeconfig to Access EKS
         run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
 
       - name: 🚀 Deploy Frontend to EKS
         run: kubectl apply -f k8s/frontend.yml
+
+      - name: ⏳ Wait for Frontend Rollout
+        run: kubectl rollout status deployment/frontend
 
       - name: 📂 Apply Kubernetes YAMLs (Ingress, ClusterIssuer)
         run: |
