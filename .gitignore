@@ -1,0 +1,60 @@
+# System & General
+.DS_Store
+.env
+*.log
+*.swp
+
+# Editor folders
+.vscode/
+.idea/
+*.code-workspace
+
+#====================================
+# Frontend (React / Vite)
+#====================================
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env*
+frontend/.vite/
+frontend/.DS_Store
+frontend/npm-debug.log
+frontend/yarn-debug.log
+frontend/yarn-error.log
+
+#====================================
+# Backend
+#====================================
+backend/node_modules/
+backend/.env*
+backend/.DS_Store
+backend/npm-debug.log
+backend/yarn-debug.log
+backend/yarn-error.log
+backend/__pycache__/
+backend/*.pyc
+
+#====================================
+# Docker
+#====================================
+**/Dockerfile.dev
+docker-compose.override.yml
+docker-compose.debug.yml
+
+#====================================
+# Terraform
+#====================================
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/crash.log
+terraform/terraform.tfvars
+terraform/.DS_Store
+
+#====================================
+# Kubernetes (optional)
+#====================================
+k8s/*.yaml~
+k8s/*.bak
+k8s/*.tmp
