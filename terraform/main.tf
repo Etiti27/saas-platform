@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.3.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -8,17 +10,15 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = ">= 2.20.0"
     }
-    kubernetes-alpha = {
-      source  = "hashicorp/kubernetes-alpha"
-      version = "0.6.0"
-    }
     helm = {
       source  = "hashicorp/helm"
       version = ">= 2.13.0"
     }
+    kubernetes-alpha = {
+      source  = "hashicorp/kubernetes-alpha"
+      version = ">= 0.7.0"
+    }
   }
-
-  required_version = ">= 1.3.0"
 }
 
 provider "aws" {
@@ -49,6 +49,8 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.private_subnets
 
+  enable_irsa = true
+
   eks_managed_node_groups = {
     default = {
       instance_types = ["t3.medium"]
@@ -57,8 +59,6 @@ module "eks" {
       min_size       = 1
     }
   }
-
-  enable_irsa = true
 }
 
 data "aws_eks_cluster_auth" "cluster" {
@@ -79,7 +79,6 @@ provider "helm" {
   }
 }
 
-
 provider "kubernetes-alpha" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
@@ -89,12 +88,10 @@ provider "kubernetes-alpha" {
 resource "helm_release" "nginx_ingress" {
   name             = "nginx-ingress"
   namespace        = "ingress-nginx"
-  chart            = "ingress-nginx"
   repository       = "https://kubernetes.github.io/ingress-nginx"
-  create_namespace = true
+  chart            = "ingress-nginx"
   version          = "4.10.0"
-
-  depends_on = [module.eks]
+  create_namespace = true
 }
 
 resource "helm_release" "cert_manager" {
@@ -102,8 +99,8 @@ resource "helm_release" "cert_manager" {
   namespace        = "cert-manager"
   repository       = "https://charts.jetstack.io"
   chart            = "cert-manager"
-  create_namespace = true
   version          = "v1.14.3"
+  create_namespace = true
 
   set = [
     {
@@ -111,15 +108,12 @@ resource "helm_release" "cert_manager" {
       value = "true"
     }
   ]
-
-  depends_on = [module.eks]
 }
 
 resource "kubernetes_manifest" "letsencrypt_issuer" {
   provider = kubernetes-alpha
 
   depends_on = [
-    module.eks,
     helm_release.cert_manager
   ]
 
