@@ -59,7 +59,9 @@ jobs:
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           terraform import "module.eks.module.kms.aws_kms_alias.this[\"cluster\"]" "arn:aws:kms:${{ env.AWS_REGION }}:$ACCOUNT_ID:alias/eks/${{ env.CLUSTER_NAME }}" || true
           terraform import "module.eks.aws_cloudwatch_log_group.this[0]" "/aws/eks/${{ env.CLUSTER_NAME }}/cluster" || true
+          terraform import "module.eks.aws_eks_cluster.this[0]" "${{ env.CLUSTER_NAME }}" || true
         working-directory: ./terraform
+
 
       - name: 📐 Terraform Plan
         run: terraform plan
