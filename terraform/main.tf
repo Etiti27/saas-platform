@@ -1,18 +1,8 @@
 terraform {
-  required_version = ">= 1.3.0"
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = ">= 2.0"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = ">= 2.0"
+      version = "~> 5.0"
     }
   }
 }
@@ -23,9 +13,9 @@ provider "aws" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  version = "5.1.1"
 
-  name = "SaaS"
+  name = "eks-vpc"
   cidr = "10.0.0.0/16"
 
   azs             = ["${var.region}a", "${var.region}b", "${var.region}c"]
@@ -34,71 +24,36 @@ module "vpc" {
 
   enable_nat_gateway = true
   single_nat_gateway = true
+  tags = {
+    Terraform = "true"
+    Environment = "dev"
+  }
 }
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+  version = "20.8.4"
 
-  cluster_name    = "SaaS_cluster"
-  cluster_version = "1.29"
+  cluster_name    = var.cluster_name
+  cluster_version = var.k8s_version
+  subnet_ids      = module.vpc.private_subnets
+  vpc_id          = module.vpc.vpc_id
 
-  cluster_endpoint_public_access  = true
-  cluster_endpoint_private_access = true
+  cluster_endpoint_public_access  = true   # 👈 Add this
+  cluster_endpoint_private_access = true   # 👈 Keep this if you want dual access
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
-
-  enable_irsa = true
 
   eks_managed_node_groups = {
     default = {
-      name           = "SaaS-node-group"
-      instance_types = ["t3.small"]
+      instance_types = [var.node_type]
       min_size       = 1
-      max_size       = 3
-      desired_size   = 2
+      max_size       = 4
+      desired_size   = var.node_count
     }
   }
-}
 
-provider "kubernetes" {
-  config_path = "~/.kube/config"
-}
-
-provider "helm" {
-  kubernetes = {
-    config_path = "~/.kube/config"
+  tags = {
+    Environment = "dev"
+    Terraform   = "true"
   }
 }
-
-resource "helm_release" "nginx_ingress" {
-  name             = "nginx-ingress"
-  namespace        = "ingress-nginx"
-  create_namespace = true
-
-  repository = "https://kubernetes.github.io/ingress-nginx"
-  chart      = "ingress-nginx"
-  version    = "4.10.0"
-
-  values     = []
-  depends_on = [module.eks]
-}
-
-resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
-  namespace        = "cert-manager"
-  create_namespace = true
-
-  repository = "https://charts.jetstack.io"
-  chart      = "cert-manager"
-  version    = "v1.14.3"
-
-  set = [{
-    name  = "installCRDs"
-    value = "true"
-  }]
-
-  depends_on = [helm_release.nginx_ingress]
-}
-

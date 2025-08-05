@@ -7,9 +7,13 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  CLUSTER_NAME: SaaS_cluster
-  IMAGE: obinna27/saas-frontend:v1.0.0
+  CLUSTER_NAME: SaaS_cluster_v3
+  IMAGE_NAME: saas-frontend
+  IMAGE_VERSION: v1.0,0 
   DOCKERHUB_USERNAME: obinna27
+  NODE_COUNT: 2
+  K8S_VERSION: 1.33.2
+  NODE_TYPE: t3.small
 
 jobs:
   deploy:
@@ -36,7 +40,7 @@ jobs:
           file: ./frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.IMAGE }}
+          tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}/ ${{ env.IMAGE_VERSION }}
 
       - name: 🔐 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -45,19 +49,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: 📦 Install Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.7.5
+      - name: Install eksctl
+        run: |
+          curl --silent --location "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+          sudo mv /tmp/eksctl /usr/local/bin
 
-      - name: 🧱 Terraform Init
-        run: terraform init -upgrade
-        working-directory: ./terraform
+      - name: Create EKS cluster
+        run: |
+          eksctl create cluster \
+            --name "${{ env.CLUSTER_NAME }}" \
+            --version "${{ env.K8S_VERSION }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --nodegroup-name "standard-workers" \
+            --node-type "${{ env.NODE_TYPE }}" \
+            --nodes "${{ env.NODE_COUNT }}" \
+            --nodes-min 1 \
+            --nodes-max 4 \
+            --managed
+
+      - name: eks update-kubeconfig
+        run: aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ env.CLUSTER_NAME }}"
 
 
-      - name: 🧱 Terraform destroy
-        run: terraform destroy -auto-approve
-        working-directory: ./terraform
-
-
-     
