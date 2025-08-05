@@ -54,7 +54,23 @@ jobs:
           curl --silent --location "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
           sudo mv /tmp/eksctl /usr/local/bin
 
+
+      - name: 🧪 Check if EKS cluster exists
+        id: cluster-check
+        run: |
+          echo "Checking if EKS cluster '${{ env.CLUSTER_NAME }}' exists..."
+          if aws eks describe-cluster --region "${{ REGION }}" --name "${{ env.CLUSTER_NAME }}" > /dev/null 2>&1; then
+          echo "✅ Cluster exists. Skipping apply."
+          echo "exists=true" >> $GITHUB_OUTPUT
+          else
+          echo "🚀 Cluster not found. Proceeding with apply."
+          echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+
+
       - name: Create EKS cluster
+        if: steps.cluster-check.outputs.exists == 'false'
         run: |
           eksctl create cluster \
             --name "${{ env.CLUSTER_NAME }}" \

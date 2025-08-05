@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      CLUSTER_NAME: SaaS_cluster_v2
+      CLUSTER_NAME: SaaS-cluster-v2      # ⚠️ Underscores not allowed — changed to valid name
       REGION: us-east-1
 
     steps:
@@ -29,8 +29,12 @@ jobs:
           curl --silent --location "https://github.com/eksctl-io/eksctl/releases/download/v0.172.0/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
           sudo mv /tmp/eksctl /usr/local/bin
 
-      - name: Delete EKS cluster
+      - name: Safely Delete EKS Cluster (if it exists)
         run: |
-          eksctl delete cluster \
-            --name "$CLUSTER_NAME" \
-            --region "$REGION"
+          echo "Checking for EKS cluster: ${{ env.CLUSTER_NAME }} in region: ${{ env.REGION }}"
+          if eksctl get cluster --region "${{ env.REGION }}" --name "${{ CLUSTER_NAME }}" > /dev/null 2>&1; then
+            echo "✅ Cluster exists. Deleting..."
+            eksctl delete cluster --region "${{ REGION }}" --name "${{ CLUSTER_NAME }}"
+          else
+            echo "⚠️ Cluster '$CLUSTER_NAME' does not exist or has already been deleted."
+          fi
