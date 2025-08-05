@@ -7,7 +7,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  CLUSTER_NAME: SaaS_cluster_v3
+  CLUSTER_NAME: SaaS-cluster-v3
   IMAGE_NAME: saas-frontend
   IMAGE_VERSION: v1.0.0 
   DOCKERHUB_USERNAME: obinna27
