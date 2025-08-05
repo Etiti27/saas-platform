@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      CLUSTER_NAME: SaaS-cluster-v2      # ⚠️ Underscores not allowed — use hyphens
+      CLUSTER_NAME: SaaS-cluster-v3     # ⚠️ Underscores not allowed — use hyphens
       REGION: us-east-1
 
     steps:
