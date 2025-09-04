@@ -1,6 +1,7 @@
 // UpdateStockModal.jsx (or inline in the same file)
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+const apiRoute= import.meta.env.VITE_API_URL
 
 export function UpdateStockModal({ product, schema, onClose, onSaved }) {
   const open = Boolean(product);
@@ -60,7 +61,7 @@ export function UpdateStockModal({ product, schema, onClose, onSaved }) {
   
       // Prefer path param; switch to query param if that’s your server style
       const { data } = await axios.patch(
-        `http://localhost:3001/route/update-product`,
+        `${apiRoute}/route/product/update-product`,
         payload,
         { headers: { "Tenant-Schema": schema }, params: { id: product.id }   }
       );

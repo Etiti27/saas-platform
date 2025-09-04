@@ -55,7 +55,7 @@ export function SalesSummary({ orders = [], currency = 'USD', tone = 'light',fro
     </td>
 
     <td className="px-3 py-2 font-medium text-left">{fmtMoney(r.total_paid, currency)}</td>
-    <td className="ppx-3 py-2 font-medium text-left">{r.status}</td>
+    <td className="px-3 py-2 font-medium text-left">{r.status}</td>
   </tr>
 )) : (
   <tr>

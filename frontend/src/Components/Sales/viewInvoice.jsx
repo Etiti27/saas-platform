@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 
 export const ViewInvoice = ({products, calculateTotal,setShowPreview,user,invoiceNumber,discountType = 'amount',discountValue = ''}) => {
   const invoiceRef = useRef(null);
-  const logo='../../../public/ecs-logo.jpeg'
+  const logo='/ecs-logo.jpeg'
   const generatePDF = async () => {
     const el = invoiceRef.current;
     if (!el) return;

@@ -13,9 +13,9 @@ export function AppFooter({ fixed = true }) {
           &copy; {new Date().getFullYear()} {appName}. All rights reserved.
         </p>
         <nav className="flex items-center gap-4">
-          <a className="text-white/90 hover:text-white hover:underline underline-offset-4" href="#privacy">Privacy</a>
-          <a className="text-white/90 hover:text-white hover:underline underline-offset-4" href="#terms">Terms</a>
-          <a className="text-white/90 hover:text-white hover:underline underline-offset-4" href="#contact">Contact</a>
+          <a className="text-white/90 hover:text-white hover:underline underline-offset-4" href="/private-policy">Privacy</a>
+          <a className="text-white/90 hover:text-white hover:underline underline-offset-4" href="/terms">Terms</a>
+          <a className="text-white/90 hover:text-white hover:underline underline-offset-4" href="/contact">Contact</a>
         </nav>
       </div>
     </footer>

@@ -1,13 +1,12 @@
+// ExpenseFormPro.jsx
 import React, { useMemo, useState } from 'react';
 import {
-  CreditCard, Banknote, Wallet2, Landmark, FileDown,
+  CreditCard, Banknote, Wallet2, Landmark,
   AlertCircle, Check, X, Info, Building2, Tags
 } from 'lucide-react';
 import axios from 'axios';
 
-/* ────────────────────────────────────────────────────────────
-   PRIMITIVES (brand-styled)
-   ──────────────────────────────────────────────────────────── */
+/* ── Primitives ───────────────────────────────────────── */
 const Input = (props) => (
   <input
     {...props}
@@ -44,20 +43,22 @@ const Card = ({ title, subtitle, right, children, className = '' }) => (
   </section>
 );
 
+const SectionTitle = ({ children }) => (
+  <div className="text-xs font-semibold tracking-wide uppercase text-[#224765]/70">{children}</div>
+);
+
 const Field = ({ label, hint, error, children }) => (
-  <div className="py-3 grid grid-cols-1 gap-2 md:grid-cols-12 md:gap-6">
-    <div className="md:col-span-4 min-w-0">
-      <div className="text-sm font-medium text-[#224765] break-words">{label}</div>
-      {hint && <div className="text-xs text-[#224765]/70 break-words">{hint}</div>}
+  <div className="py-3">
+    <div className="flex items-baseline justify-between">
+      <div className="text-sm font-medium text-[#224765]">{label}</div>
+      {hint && <div className="text-xs text-[#224765]/70">{hint}</div>}
     </div>
-    <div className="md:col-span-8 min-w-0">
-      {children}
-      {error ? (
-        <div className="mt-1 inline-flex items-center gap-1 text-xs text-red-600 break-words">
-          <AlertCircle className="h-3.5 w-3.5" /> {error}
-        </div>
-      ) : null}
-    </div>
+    <div className="mt-2">{children}</div>
+    {error ? (
+      <div className="mt-1 inline-flex items-center gap-1 text-xs text-red-600">
+        <AlertCircle className="h-3.5 w-3.5" /> {error}
+      </div>
+    ) : null}
   </div>
 );
 
@@ -82,7 +83,7 @@ const Segmented = ({ value, onChange, options }) => (
 const ChipGroup = ({ options, value, onChange }) => (
   <div className="flex flex-wrap gap-2">
     {options.map((o) => {
-      const active = o.value === value;
+      const active = o.value === value || o.value === value?.value;
       return (
         <button
           key={o.value}
@@ -99,44 +100,13 @@ const ChipGroup = ({ options, value, onChange }) => (
   </div>
 );
 
-const Dropzone = ({ file, onFile, onClear }) => (
-  <div className="flex items-center gap-3">
-    <label className="block cursor-pointer rounded-xl border border-dashed border-[#224765]/30 bg-white/70 px-3 py-3 text-center text-sm text-[#224765] hover:bg-[#D3E2FD]/30 flex-1">
-      <div className="flex items-center justify-center gap-2 flex-wrap">
-        <FileDown className="h-4 w-4" />
-        <span className="break-words">
-          {file ? 'Change file (image/PDF)' : 'Drop file or click to upload (image/PDF)'}
-        </span>
-      </div>
-      <input
-        type="file"
-        className="hidden"
-        accept="image/*,.pdf"
-        onChange={(e) => onFile?.(e.target.files?.[0] || null)}
-      />
-    </label>
-    {file ? (
-      <>
-        <span className="text-xs text-[#224765]/80 truncate max-w-[12rem]">{file.name}</span>
-        <button
-          type="button"
-          onClick={onClear}
-          className="rounded-xl border border-[#224765]/30 bg-white px-3 py-2 text-sm text-[#224765] shadow-sm hover:bg-[#D3E2FD]/40"
-        >
-          Clear
-        </button>
-      </>
-    ) : null}
-  </div>
-);
-
 const MiniTile = ({ label, value, icon: Icon }) => (
-  <div className="rounded-xl border border-[#224765]/10 bg-[#D3E2FD]/30 p-3 min-w-0">
+  <div className="rounded-xl border border-[#224765]/10 bg-[#D3E2FD]/30 p-3">
     <div className="flex items-center gap-2 text-xs text-[#224765]/70">
-      {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" /> : null}
-      <span className="break-words">{label}</span>
+      {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+      {label}
     </div>
-    <div className="text-sm font-semibold text-[#224765] break-words">{value ?? '—'}</div>
+    <div className="text-sm font-semibold text-[#224765]">{value ?? '—'}</div>
   </div>
 );
 
@@ -168,22 +138,11 @@ const fmt = (n, c = 'USD') => {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: c }).format(num);
 };
 
-/* ────────────────────────────────────────────────────────────
-   EXPENSE FORM (Pro) — file upload fixed (FormData)
-   ──────────────────────────────────────────────────────────── */
-/**
- * props:
- * - currency
- * - categories: [{ value, label }]
- * - vendors: [{ id, name }]
- * - defaultValues
- * - onSubmit(payload)   // optional callback after API success
- * - onCancel()          // optional
- * - apiUrl              // optional override (default local)
- * - schema              // optional tenant header
- */
+const APIURL = import.meta.env.VITE_API_URL;
+
+/* ── ExpenseFormPro ───────────────────────────────────── */
 export function ExpenseFormPro({
-    user,
+  user,
   currency = 'USD',
   categories = [
     { value: 'supplies', label: 'Supplies' },
@@ -197,32 +156,31 @@ export function ExpenseFormPro({
   defaultValues = {},
   onSubmit,
   onCancel,
-  apiUrl = 'http://localhost:3001/expenses/add_expenses',
-  
+  apiUrl = `${APIURL}/expenses/add_expenses`,
 }) {
-const schema=user?.tenant?.schema_name;
-console.log(schema);
+  const schema = user?.tenant?.schema_name;
   const todayISO = new Date().toISOString().slice(0, 10);
+
   const [form, setForm] = useState({
     date: defaultValues.date || todayISO,
     vendor_name: defaultValues.vendor_name || '',
+    vendor_id: defaultValues.vendor_id || '',
     category: defaultValues.category || 'supplies',
     description: defaultValues.description || '',
     amount: defaultValues.amount ?? '',
     taxMode: defaultValues.taxMode || 'exclusive', // 'exclusive' | 'inclusive' | 'none'
-    taxRate: defaultValues.taxRate ?? 7.5, // %
+    taxRate: defaultValues.taxRate ?? 7.5,        // %
     method: defaultValues.method || 'Bank Transfer',
     reference: defaultValues.reference || '',
     cost_center: defaultValues.cost_center || '',
-    // attachment: null, // File | null
     notes: defaultValues.notes || '',
   });
+
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
   const [serverOk, setServerOk] = useState(null);
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-  
 
   const errors = useMemo(() => {
     const e = {};
@@ -232,253 +190,257 @@ console.log(schema);
     if (!Number.isFinite(amt) || amt <= 0) e.amount = 'Enter a valid amount';
     if (form.taxMode !== 'none' && (!Number.isFinite(Number(form.taxRate)) || Number(form.taxRate) < 0))
       e.taxRate = 'Invalid tax rate';
+    if (!form.vendor_id && !form.vendor_name) e.vendor = 'Select a vendor or type a name';
     return e;
   }, [form]);
 
   const valid = Object.keys(errors).length === 0;
 
-  // Totals: 'amount' is base input; how it behaves depends on taxMode
   const totals = useMemo(() => {
     const amt = Number(form.amount) || 0;
     const rate = (Number(form.taxRate) || 0) / 100;
-
-    if (form.taxMode === 'none') {
-      return { base: amt, tax: 0, total: amt };
-    }
-    if (form.taxMode === 'exclusive') {
-      const tax = amt * rate;
-      return { base: amt, tax, total: amt + tax };
-    }
+    if (form.taxMode === 'none') return { base: amt, tax: 0, total: amt };
+    if (form.taxMode === 'exclusive') return { base: amt, tax: amt * rate, total: amt + amt * rate };
     // inclusive
     const base = rate > 0 ? amt / (1 + rate) : amt;
-    const tax = amt - base;
-    return { base, tax, total: amt };
+    return { base, tax: amt - base, total: amt };
   }, [form.amount, form.taxRate, form.taxMode]);
 
-  const headersBase = {};
-  if (schema) headersBase['Tenant-Schema'] = schema;
+  const headersBase = schema ? { 'Tenant-Schema': schema } : {};
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
-    if (!valid || submitting) return;
+    if (submitting) return;
+
+    // quick guard
+    if (!valid) {
+      setServerError('Please fix validation errors.');
+      return;
+    }
 
     setSubmitting(true);
     setServerError(null);
     setServerOk(null);
 
     try {
-      // Build payload
+      // map to your Sequelize model fields
       const payload = {
-        ...form,
-        amount: Number(form.amount),
-        taxRate: Number(form.taxRate),
-        totals,
-        currency,
+        date:        form.date,
+        vendor_name: form.vendor_id ? undefined : form.vendor_name, // allow either id or name
+        vendor_id:   form.vendor_id || undefined,
+
+        category:    form.category,
+        description: form.description || '',
+        amount:      Number(form.amount),
+
+        tax_mode:    form.taxMode,
+        tax_rate:    Number(form.taxRate),
+
+        total_net:   Number(totals.base),
+        total_tax:   Number(totals.tax),
+        total_gross: Number(totals.total),
+
+        currency, // from props
+        method:      form.method,
+        reference:   form.reference || '',
+        cost_center: form.cost_center || '',
+        notes:       form.notes || '',
       };
+      console.log(payload);
 
-      
-        // JSON body without file
-       const res = await axios.post(apiUrl, payload, {
-          headers: { ...headersBase, 'Content-Type': 'application/json' },
-        });
-      
+      const res = await axios.post(apiUrl, payload, {
+        headers: { ...headersBase, 'Content-Type': 'application/json' },
+      });
 
-      if (res.status === 201 || res.status === 200) {
+      if (res.status === 200 || res.status === 201) {
         setServerOk('Expense saved successfully.');
-        onSubmit?.(payload);
+        onSubmit?.(res.data ?? payload);
+        // reset
         setForm({
-            date: todayISO,
-            vendor_name: '',
-            category: defaultValues.category || 'supplies',
-            description: defaultValues.description || '',
-            amount: defaultValues.amount ?? '',
-            taxMode: defaultValues.taxMode || 'exclusive', // 'exclusive' | 'inclusive' | 'none'
-            taxRate: defaultValues.taxRate ?? 7.5, // %
-            method: defaultValues.method || 'Bank Transfer',
-            reference: defaultValues.reference || '',
-            cost_center: defaultValues.cost_center || '',
-    // attachment: null, // File | null
-            notes: defaultValues.notes || '',
-        })
-        // Optionally reset form after success:
-        // setForm((p) => ({ ...p, amount: '', reference: '', notes: '', attachment: null }));
+          date: new Date().toISOString().slice(0, 10),
+          vendor_name: '',
+          vendor_id: '',
+          category: 'supplies',
+          description: '',
+          amount: '',
+          taxMode: 'exclusive',
+          taxRate: 7.5,
+          method: 'Bank Transfer',
+          reference: '',
+          cost_center: '',
+          notes: '',
+        });
       } else {
         setServerError(`Unexpected response: ${res.status}`);
       }
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Failed to save expense. Please try again.';
+      const msg = err?.response?.data?.message || err?.message || 'Failed to save expense. Please try again.';
       setServerError(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
+  /* ── UI ─────────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#D3E2FD] via-white to-[#D3E2FD]">
-      <main className="min-h-screen w-full p-6 flex items-center justify-center">
-        <div className="w-full max-w-5xl">
-          <Card
-            title="Record Expense"
-            subtitle="Log company expenses with tax handling, categories, and attachments"
-            right={<Info className="h-5 w-5 text-[#224765]" />}
-          >
-            {/* Alerts */}
-            {serverOk ? (
-              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-                {serverOk}
-              </div>
-            ) : null}
-            {serverError ? (
-              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {serverError}
-              </div>
-            ) : null}
+      <div className="mx-auto max-w-6xl px-4 py-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Left: Form */}
+          <div className="lg:col-span-8">
+            <Card
+              title="Record Expense"
+              subtitle="Log company expenses with tax handling, categories and metadata"
+              right={<Info className="h-5 w-5 text-[#224765]" />}
+            >
+              {serverOk && (
+                <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                  {serverOk}
+                </div>
+              )}
+              {serverError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {serverError}
+                </div>
+              )}
 
-            {/* Summary */}
-            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <MiniTile label="Net (before tax)" value={fmt(totals.base, currency)} icon={Tags} />
-              <MiniTile label="Tax" value={fmt(totals.tax, currency)} icon={Info} />
-              <MiniTile label="Total (payable)" value={fmt(totals.total, currency)} icon={Wallet2} />
-            </div>
+              <form onSubmit={handleSubmit} noValidate>
+                {/* Section: Basics */}
+                <div className="mb-2"><SectionTitle>Basics</SectionTitle></div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="Date" error={errors.date}>
+                    <Input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
+                  </Field>
 
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Date" error={errors.date}>
-                  <Input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
-                </Field>
+                  <Field label="Vendor" hint={vendors.length ? 'Select from list' : 'Type name'} error={errors.vendor}>
+                    {vendors.length ? (
+                      <Select value={form.vendor_id} onChange={(e) => set('vendor_id', e.target.value)}>
+                        <option value="">Select vendor…</option>
+                        {vendors.map((v) => (
+                          <option key={v.id} value={v.id}>{v.name}</option>
+                        ))}
+                      </Select>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Vendor name"
+                          value={form.vendor_name}
+                          onChange={(e) => set('vendor_name', e.target.value)}
+                        />
+                        <span className="inline-flex items-center text-[#224765]/60 text-sm">
+                          <Building2 className="h-4 w-4 mr-1" /> Manual
+                        </span>
+                      </div>
+                    )}
+                  </Field>
+                </div>
 
-                <Field label="Vendor" hint="Select from list or type a name">
-                  {vendors.length ? (
-                    <Select value={form.vendor_id} onChange={(e) => set('vendor_id', e.target.value)}>
-                      <option value="">Select vendor…</option>
-                      {vendors.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.name}
-                        </option>
-                      ))}
-                    </Select>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Vendor name"
-                        value={form.vendor_name}
-                        onChange={(e) => set('vendor_name', e.target.value)}
-                      />
-                      <span className="inline-flex items-center text-[#224765]/60 text-sm">
-                        <Building2 className="h-4 w-4 mr-1" /> Manual
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="Category" error={errors.category}>
+                    <ChipGroup
+                      value={form.category}
+                      onChange={(v) => set('category', v)}
+                      options={categories}
+                    />
+                  </Field>
+
+                  <Field label="Description" hint="What is this expense for?">
+                    <Input
+                      placeholder="e.g., Nitrile gloves bulk order"
+                      value={form.description}
+                      onChange={(e) => set('description', e.target.value)}
+                    />
+                  </Field>
+                </div>
+
+                {/* Section: Amounts & Tax */}
+                <div className="mt-4 mb-2"><SectionTitle>Amounts & Tax</SectionTitle></div>
+                <Field label="Amount" error={errors.amount}>
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#224765]/70">
+                        {currency}
                       </span>
+                      <Input
+                        className="pl-12"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.amount}
+                        onChange={(e) => set('amount', e.target.value)}
+                      />
+                    </div>
+
+                    <Segmented
+                      value={form.taxMode}
+                      onChange={(v) => set('taxMode', v)}
+                      options={[
+                        { value: 'exclusive', label: 'Tax exclusive' },
+                        { value: 'inclusive', label: 'Tax inclusive' },
+                        { value: 'none', label: 'No tax' },
+                      ]}
+                    />
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[#224765]/70">Tax rate %</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="max-w-[140px]"
+                        value={form.taxRate}
+                        onChange={(e) => set('taxRate', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {errors.taxRate && (
+                    <div className="mt-1 inline-flex items-center gap-1 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5" /> {errors.taxRate}
                     </div>
                   )}
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Category" error={errors.category}>
-                  <ChipGroup value={form.category} onChange={(v) => set('category', v)} options={categories} />
-                </Field>
-
-                <Field label="Description" hint="What is this expense for?">
-                  <Input
-                    placeholder="e.g., Nitrile gloves bulk order"
-                    value={form.description}
-                    onChange={(e) => set('description', e.target.value)}
-                  />
-                </Field>
-              </div>
-
-              <Field label="Amount" error={errors.amount}>
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#224765]/70">
-                      {currency}
-                    </span>
-                    <Input
-                      className="pl-12"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={form.amount}
-                      onChange={(e) => set('amount', e.target.value)}
-                    />
+                  <div className="mt-2 text-xs text-[#224765]/70">
+                    {form.taxMode === 'exclusive'
+                      ? 'Total = Amount + (Amount × Tax %)'
+                      : form.taxMode === 'inclusive'
+                      ? 'Amount includes tax; Net = Amount ÷ (1 + Tax %)'
+                      : 'No tax applied.'}
                   </div>
+                </Field>
 
-                  <Segmented
-                    value={form.taxMode}
-                    onChange={(v) => set('taxMode', v)}
-                    options={[
-                      { value: 'exclusive', label: 'Tax exclusive' },
-                      { value: 'inclusive', label: 'Tax inclusive' },
-                      { value: 'none', label: 'No tax' },
-                    ]}
-                  />
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#224765]/70">Tax rate %</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="max-w-[140px]"
-                      value={form.taxRate}
-                      onChange={(e) => set('taxRate', e.target.value)}
+                {/* Section: Payment & Meta */}
+                <div className="mt-4 mb-2"><SectionTitle>Payment & Meta</SectionTitle></div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="Payment method">
+                    <Segmented
+                      value={form.method}
+                      onChange={(v) => set('method', v)}
+                      options={[
+                        { value: 'Card', label: 'Card', icon: CreditCard },
+                        { value: 'Cash', label: 'Cash', icon: Banknote },
+                        { value: 'Online', label: 'Online', icon: Wallet2 },
+                        { value: 'Bank Transfer', label: 'Bank', icon: Landmark },
+                      ]}
                     />
-                  </div>
+                  </Field>
+
+                  <Field label="Reference & Cost center" hint="Optional">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <Input
+                        placeholder="Reference (e.g., INV-4921)"
+                        value={form.reference}
+                        onChange={(e) => set('reference', e.target.value)}
+                      />
+                      <Input
+                        placeholder="Cost center (e.g., Clinic-A)"
+                        value={form.cost_center}
+                        onChange={(e) => set('cost_center', e.target.value)}
+                      />
+                    </div>
+                  </Field>
                 </div>
-                {errors.taxRate && (
-                  <div className="mt-1 inline-flex items-center gap-1 text-xs text-red-600">
-                    <AlertCircle className="h-3.5 w-3.5" /> {errors.taxRate}
-                  </div>
-                )}
-                <div className="mt-2 text-xs text-[#224765]/70">
-                  {form.taxMode === 'exclusive'
-                    ? 'Total = Amount + (Amount × Tax %)'
-                    : form.taxMode === 'inclusive'
-                    ? 'Amount includes tax; Net = Amount ÷ (1 + Tax %)'
-                    : 'No tax applied.'}
-                </div>
-              </Field>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Payment method">
-                  <Segmented
-                    value={form.method}
-                    onChange={(v) => set('method', v)}
-                    options={[
-                      { value: 'Card', label: 'Card', icon: CreditCard },
-                      { value: 'Cash', label: 'Cash', icon: Banknote },
-                      { value: 'Online', label: 'Online', icon: Wallet2 },
-                      { value: 'Bank Transfer', label: 'Bank', icon: Landmark },
-                    ]}
-                  />
-                </Field>
-
-                <Field label="Reference & Cost center" hint="Optional metadata">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Input
-                      placeholder="Reference (e.g., INV-4921)"
-                      value={form.reference}
-                      onChange={(e) => set('reference', e.target.value)}
-                    />
-                    <Input
-                      placeholder="Cost center (e.g., Clinic-A)"
-                      value={form.cost_center}
-                      onChange={(e) => set('cost_center', e.target.value)}
-                    />
-                  </div>
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* <Field label="Attachment" hint="Receipt / invoice (optional)">
-                  <Dropzone
-                    file={form.attachment}
-                    onFile={(f) => set('attachment', f)}
-                    onClear={() => set('attachment', null)}
-                  />
-                </Field> */}
+                {/* Section: Notes */}
+                <div className="mt-4 mb-2"><SectionTitle>Notes</SectionTitle></div>
                 <Field label="Notes">
                   <Textarea
                     rows={4}
@@ -487,23 +449,53 @@ console.log(schema);
                     onChange={(e) => set('notes', e.target.value)}
                   />
                 </Field>
-              </div>
 
-              {/* Sticky actions */}
-              <div className="sticky bottom-4 z-10">
-                <div className="mx-auto w-[min(100%,_64rem)] rounded-xl border border-[#224765]/10 bg-white/90 backdrop-blur p-3 shadow-lg flex flex-wrap items-center justify-end gap-2">
-                  <ButtonGhost icon={X} onClick={onCancel}>
-                    Cancel
-                  </ButtonGhost>
-                  <ButtonPrimary type="submit" disabled={!valid || submitting} icon={Check}>
-                    {submitting ? 'Saving…' : 'Save Expense'}
-                  </ButtonPrimary>
+                {/* Sticky actions */}
+                <div className="sticky bottom-4 z-10 mt-6">
+                  <div className="rounded-xl border border-[#224765]/10 bg-white/90 backdrop-blur p-3 shadow-lg flex flex-wrap items-center justify-end gap-2">
+                    <ButtonGhost icon={X} onClick={onCancel}>Cancel</ButtonGhost>
+                    <ButtonPrimary type="submit" disabled={!valid || submitting} icon={Check}>
+                      {submitting ? 'Saving…' : 'Save Expense'}
+                    </ButtonPrimary>
+                  </div>
                 </div>
+              </form>
+            </Card>
+          </div>
+
+          {/* Right: Summary */}
+          <div className="lg:col-span-4">
+            <Card title="Summary" subtitle="Quick view of computed totals">
+              <div className="grid grid-cols-1 gap-3">
+                <MiniTile label="Net (before tax)" value={fmt(totals.base, currency)} icon={Tags} />
+                <MiniTile label="Tax" value={fmt(totals.tax, currency)} icon={Info} />
+                <MiniTile label="Total (payable)" value={fmt(totals.total, currency)} icon={Wallet2} />
               </div>
-            </form>
-          </Card>
+              <div className="mt-4 grid grid-cols-1 gap-3">
+                <MiniTile label="Date" value={form.date || '—'} />
+                <MiniTile
+                  label="Vendor"
+                  value={
+                    form.vendor_id
+                      ? (vendors.find(v => v.id === form.vendor_id)?.name || form.vendor_id)
+                      : (form.vendor_name || '—')
+                  }
+                />
+                <MiniTile
+                  label="Category"
+                  value={categories.find(c => c.value === form.category)?.label || form.category}
+                />
+                <MiniTile label="Method" value={form.method} />
+                <MiniTile label="Reference" value={form.reference || '—'} />
+                <MiniTile label="Cost center" value={form.cost_center || '—'} />
+              </div>
+              <div className="mt-4 rounded-xl border border-[#224765]/10 bg-white p-3 text-xs text-[#224765]/80">
+                Tip: attach invoices/receipts in your accounting export.
+              </div>
+            </Card>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

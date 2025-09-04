@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { setAccessToken, bootstrapAuth } from './Token';
-// ⬇️ Add your logo file here (SVG/PNG/JPG). Fallback monogram is used if missing.
-import IkengaLogo from '../../public/ecs-logo.jpeg'; // <-- place your file at this path
+import {useNavigate} from 'react-router-dom'
 
-const SECTORS = [/* ...your list... */];
+// ⬇️ Add your logo file here (SVG/PNG/JPG). Fallback monogram is used if missing.
+import IkengaLogo from '/ecs-logo.jpeg'; // <-- place your file at this path
+
+const SECTORS = ["Technology","Health" ];
+
 
 export function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,6 +20,11 @@ export function AuthForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const apiRoute=import.meta.env.VITE_API_URL
+  const navigate = useNavigate()
+
+  const boot=async()=>{
+    return bootstrapAuth();
+  }
  
 
   const handleChange = (e) => setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
@@ -28,10 +36,22 @@ export function AuthForm() {
       try {
         setError(''); setIsLoading(true);
         const res = await axios.post(`${apiRoute}/route/login`, { email: form.email, password: form.password });
+        console.log(res);
         if (res.status === 200) {
           setAccessToken(res.data.access_token);
-          bootstrapAuth();
+          console.log("tes 1");
+          const user=await boot()
+          if(user.user.user.role.toLowerCase()=="admin"){
+            console.log("yes");
+            navigate('/admin-dashboard')
+          }
+          if(user.user.user.role.toLowerCase()=="inventory"){
+            
+            navigate('/inventory')
+          }
           window.location.reload();
+        
+          
         }
       } catch (err) {
         setError(err?.response?.data?.message || err.message || 'Sign in failed');
@@ -49,6 +69,7 @@ export function AuthForm() {
       fd.append('adminPhone', form.adminPhone);
       fd.append('companyStartDate', form.companyStartDate);
       fd.append('sector', form.sector);
+     
       if (logo) fd.append('logo', logo);
 
       const res = await axios.post(`${apiRoute}/route/register`, fd, {
@@ -77,11 +98,11 @@ export function AuthForm() {
             {/* Brand block */}
             <div className="flex items-center gap-3">
               {/* Logo (fallback to monogram if file not found) */}
-              {IkengaLogo ? (
+             {/*  {IkengaLogo ? (
                 <img src={IkengaLogo} alt="Ikenga logo" className="size-20 rounded-full object-cover shadow"/>
               ) : (
                 <div className="h-10 w-10 rounded-xl bg-white/10 grid place-items-center text-lg font-bold shadow">I</div>
-              )}
+              )} */}
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl font-bold tracking-tight uppercase">{import.meta.env.VITE_APP_NAME}</h1>

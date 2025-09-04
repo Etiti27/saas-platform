@@ -21,7 +21,7 @@ export function getAccessToken() {
   return localStorage.getItem(ACCESS_KEY);
 }
 
-export function bootstrapAuth() {
+export const bootstrapAuth=() =>{
   if (typeof window === 'undefined') return { user: null, isAuthenticated: false };
 
   const token = localStorage.getItem(ACCESS_KEY);

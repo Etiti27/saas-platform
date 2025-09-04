@@ -1,4 +1,20 @@
-# Logs
+# -----------------------
+# OS & Editor cruft
+# -----------------------
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history
+
+# -----------------------
+# Logs & diagnostics
+# -----------------------
 logs
 *.log
 npm-debug.log*
@@ -6,19 +22,125 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.bun-install.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-node_modules
-dist
-dist-ssr
-*.local
+# -----------------------
+# Runtime data & pids
+# -----------------------
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# -----------------------
+# Env/config (keep examples)
+# -----------------------
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# -----------------------
+# Dependencies
+# -----------------------
+node_modules/
+jspm_packages/
+bower_components/
+
+# -----------------------
+# Build & output
+# -----------------------
+dist/
+build/
+out/
+.tmp/
+.temp/
+.nyc_output
+coverage
+*.lcov
+.grunt
+
+# -----------------------
+# Caches
+# -----------------------
+.cache
+.parcel-cache
+.vite/
+.eslintcache
+.stylelintcache
+.npm
+.pnp.*   # Yarn PnP
+
+# -----------------------
+# TypeScript
+# -----------------------
+*.tsbuildinfo
+
+# -----------------------
+# Package managers
+# -----------------------
+# Yarn v2/3 (Berry): commit selective folders only
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnpm-store/
+
+# -----------------------
+# Frameworks / Static sites
+# -----------------------
+# Next.js
+.next/
+# Nuxt
+.nuxt/
+# Gatsby
+.cache/
+public/
+# SvelteKit
+.svelte-kit/
+# Astro
+.astro/
+# Remix
+public/build/
+build/client/
+# VuePress / VitePress
+.vuepress/dist
+.vitepress/dist
+
+# -----------------------
+# Storybook
+# -----------------------
+storybook-static/
+.out/
+
+# -----------------------
+# Testing / E2E
+# -----------------------
+# Cypress
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+# Puppeteer
+screenshots/
+traces/
+
+# -----------------------
+# Bundlers / Compilers
+# -----------------------
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# -----------------------
+# Monorepo / Tooling
+# -----------------------
+.turbo/
+nx-out/

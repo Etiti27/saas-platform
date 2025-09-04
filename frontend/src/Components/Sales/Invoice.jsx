@@ -71,7 +71,7 @@ const InvoiceGenerator = ({ user, employee }) => {
       try {
         setLoading(true);
         setCatalogError(null);
-        const { data } = await axios.get(`${apiRoute}/route/all_products`, {
+        const { data } = await axios.get(`${apiRoute}/route/product/all_products`, {
           headers: { 'Tenant-Schema': schema },
           signal: controller.signal,
         });
@@ -225,6 +225,7 @@ const InvoiceGenerator = ({ user, employee }) => {
                 {catalogError && (
                   <div className="mb-4">
                     <AlertBanner
+                    BRAND={BRAND}
                       title="Catalog loading failed"
                       message={catalogError.message}
                       status={catalogError.status}
@@ -269,16 +270,13 @@ const InvoiceGenerator = ({ user, employee }) => {
 
                 {/* Items table */}
                 <div className="mb-4 md:mb-6">
-                  <Table
-                    BRAND={BRAND}
-                    products={products}
-                    setDiscountType={setDiscountType}
-                    setDiscountValue={setDiscountValue}
+                  <Table BRAND={BRAND} products={products} setDiscountType={setDiscountType} setDiscountValue={setDiscountValue}
                     discountAmount={discountAmount}
                     subtotal={subtotal}
                     discountType={discountType}
                     discountValue={discountValue}
                     grandTotal={grandTotal}
+                    setProducts={setProducts}
                   />
                 </div>
 
@@ -286,6 +284,7 @@ const InvoiceGenerator = ({ user, employee }) => {
                 {creatingError && (
                   <div className="mb-4">
                     <AlertBanner
+                    BRAND={BRAND}
                       title="Couldn't save order"
                       message={creatingError.message}
                       status={creatingError.status}

@@ -345,7 +345,7 @@ export function AdminDashboardPro({
      Handlers
   --------------------------*/
   const resetMainDates = () => {
-    setDateFrom(today);
+    setDateFrom(weekAgo);
     setDateTo(today);
   };
   const resetGraphDates = () => {

@@ -1,16 +1,18 @@
 import React, {useState, useEffect} from 'react'
 import { AdminDashboardPro } from './components/AllComponents'
 
-import { ShowSetting } from './components/ShowSettings'
 import axios from 'axios'
+import { RefundFormPro } from '../Sales/Refund'
 
 function Admin({user, settingPrev, setSettingPrev}) {
   const schema= user.tenant.schema_name
   const [showPreview, setShowPreview] = useState(false);
   
   const [settings, setSettings] = useState(null);
+  const [refund, setRefdund]= useState(null);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState(null);
+  console.log(user);
 
   useEffect(() => {
     if (!schema) return;
@@ -45,17 +47,7 @@ function Admin({user, settingPrev, setSettingPrev}) {
       controller.abort();
     };
   }, []);
-
-
-   
-
-    
-
-   
-  
   return (
-    
-       
           <section className="lg:col-span-2">
             <div className="bg-white p-6 rounded-2xl shadow-xl ring-1 ring-[#224765]/10">
             <AdminDashboardPro
@@ -82,31 +74,20 @@ function Admin({user, settingPrev, setSettingPrev}) {
     // Optional: pass your real datasets
     // data={{ revenueSeries, ordersSeries, payments, revenueByCategory, customerSegments, topProducts, lowStock, employees, profitDaily, salesRecords, refunds }}
   />
-    {settingPrev && (
+    {/* {!settingPrev && (
        <div className="min-h-screen bg-gradient-to-br from-[#D3E2FD] via-white to-[#D3E2FD]">
-   
-      
       <main className="min-h-screen w-full p-6 flex items-center justify-center">
         <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <ShowSetting setSettingPrev={setSettingPrev} />
                   </div>
            </main>
-            </div> 
-                 
+            </div>     
               )}
-
-
+ */}
+       
             </div>
             </section>
-          
-   
-    
-   
-
-
- 
 
   )
 }
-
 export {Admin}

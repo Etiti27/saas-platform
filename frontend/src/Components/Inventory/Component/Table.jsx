@@ -132,7 +132,6 @@ export function Table({ filtered, Chip, fmtMoney, requestDelete, schema }) {
                   })}
                 </tbody>
               </table>
-{console.log(editing)}
             </div>
           </>
         )}

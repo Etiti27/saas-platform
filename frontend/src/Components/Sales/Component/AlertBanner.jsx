@@ -1,4 +1,5 @@
-export const AlertBanner = ({ title, message, status, onClose, details }) => {
+import { useState } from "react";
+export const AlertBanner = ({ title, message, status, onClose, details, BRAND }) => {
     const [showDetails, setShowDetails] = useState(false);
     return (
       <div className="rounded-xl border px-4 py-3 text-sm shadow-sm mb-3"

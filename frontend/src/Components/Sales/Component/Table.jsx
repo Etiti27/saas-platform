@@ -2,7 +2,7 @@ import React from 'react'
 import { deleteProduct } from '../Services/delete';
 import { updateQty } from '../Services/UpdateQty';
 
-function Table({BRAND,products, setDiscountType, setDiscountValue, discountAmount, subtotal, discountType, discountValue, grandTotal}) {
+function Table({BRAND,products, setDiscountType, setDiscountValue, discountAmount, subtotal, discountType, discountValue, grandTotal, setProducts}) {
   return (
     <div className="overflow-x-auto rounded-xl border"
     style={{ borderColor: `${BRAND.primary}26` }}>
@@ -10,11 +10,11 @@ function Table({BRAND,products, setDiscountType, setDiscountValue, discountAmoun
    <thead className="text-[#224765]"
           style={{ background: BRAND.tint }}>
      <tr>
-       <th className="p-2 border text-center" style={{ borderColor: `${BRAND.primary}1A` }}>#</th>
-       <th className="p-2 border text-center" style={{ borderColor: `${BRAND.primary}1A` }}>Product</th>
-       <th className="p-2 border text-center" style={{ borderColor: `${BRAND.primary}1A` }}>Qty</th>
-       <th className="p-2 border text-center" style={{ borderColor: `${BRAND.primary}1A` }}>Amount</th>
-       <th className="p-2 border text-center" style={{ borderColor: `${BRAND.primary}1A` }}>Actions</th>
+       <th className="p-2 border" style={{ borderColor: `${BRAND.primary}1A` }}>#</th>
+       <th className="p-2 border" style={{ borderColor: `${BRAND.primary}1A` }}>Product</th>
+       <th className="p-2 border" style={{ borderColor: `${BRAND.primary}1A` }}>Qty</th>
+       <th className="p-2 border" style={{ borderColor: `${BRAND.primary}1A` }}>Amount</th>
+       <th className="p-2 border" style={{ borderColor: `${BRAND.primary}1A` }}>Actions</th>
      </tr>
    </thead>
    <tbody>
@@ -33,7 +33,7 @@ function Table({BRAND,products, setDiscountType, setDiscountValue, discountAmoun
              onChange={(e) => updateQty({index:i, val:e.target.value, setProducts:setProducts})}
            />
          </td>
-         <td className="p-2 text-center">${p.amount}</td>
+         <td className="p-2 ">${p.amount}</td>
          <td className="p-2 text-center">
            <button
              onClick={() => deleteProduct({index:i, setProducts:setProducts})}
