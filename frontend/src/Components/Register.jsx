@@ -4,7 +4,7 @@ import { setAccessToken, bootstrapAuth } from './Token';
 import {useNavigate} from 'react-router-dom'
 
 // ⬇️ Add your logo file here (SVG/PNG/JPG). Fallback monogram is used if missing.
-import IkengaLogo from '/ecs-logo.jpeg'; // <-- place your file at this path
+
 
 const SECTORS = ["Technology","Health" ];
 
