@@ -11,31 +11,103 @@ jobs:
   delete-cluster:
     if: ${{ github.event.inputs.confirm == 'DELETE' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     env:
-      CLUSTER_NAME: SaaS-cluster-v3     # ⚠️ Underscores not allowed — use hyphens
       REGION: us-east-1
+      # ⚠️ Use only letters, numbers, and hyphens in cluster names (no underscores)
+      CLUSTER_NAME: SaaS-cluster-v3
 
     steps:
-      - name: Configure AWS credentials
+      - name: 🔐 Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.REGION }}
 
-      - name: Install eksctl
-        run: |
-          curl --silent --location "https://github.com/eksctl-io/eksctl/releases/download/v0.172.0/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-          sudo mv /tmp/eksctl /usr/local/bin
+      - name: 🧾 Who am I?
+        run: aws sts get-caller-identity
 
-      - name: 🗑️ Safely Delete EKS Cluster (if it exists)
+      - name: 📥 Install eksctl (latest)
         run: |
-          echo "$(date -u) 🔍 Checking for EKS cluster: ${{ env.CLUSTER_NAME }} in region: ${{ env.REGION }}"
-          if eksctl get cluster --region "${{ env.REGION }}" --name "${{ env.CLUSTER_NAME }}" > /dev/null 2>&1; then
-            echo "$(date -u) ✅ Cluster exists. Deleting (this may take a few minutes)..."
-            eksctl delete cluster --region "${{ env.REGION }}" --name "${{ env.CLUSTER_NAME }}" --wait
-            echo "$(date -u) ✅ Cluster deleted successfully."
+          curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" \
+          | tar xz -C /tmp
+          sudo mv /tmp/eksctl /usr/local/bin
+          eksctl version
+
+      - name: 🔍 Show current stack/cluster status (best-effort)
+        continue-on-error: true
+        run: |
+          set +e
+          echo "Checking EKS cluster '${CLUSTER_NAME}' in ${REGION}..."
+          aws eks describe-cluster --name "${CLUSTER_NAME}" --region "${REGION}" --query 'cluster.status'
+          echo "Checking CFN cluster stack status..."
+          aws cloudformation describe-stacks --region "${REGION}" \
+            --stack-name "eksctl-${CLUSTER_NAME}-cluster" \
+            --query 'Stacks[0].StackStatus'
+          echo "Listing stacks that match eksctl-${CLUSTER_NAME}-* ..."
+          aws cloudformation list-stacks --region "${REGION}" --query 'StackSummaries[].StackName' --output text | tr "\t" "\n" | grep -E "^eksctl-${CLUSTER_NAME}-" || true
+
+      - name: 🗑️ Delete EKS cluster if it exists
+        run: |
+          set -euo pipefail
+          if aws eks describe-cluster --name "${CLUSTER_NAME}" --region "${REGION}" >/dev/null 2>&1; then
+            echo "$(date -u) ✅ Cluster exists. Deleting (this can take a while)..."
+            # --wait blocks until the cluster and its managed nodegroups are gone (as much as eksctl can)
+            eksctl delete cluster --region "${REGION}" --name "${CLUSTER_NAME}" --wait
+            echo "$(date -u) ✅ eksctl delete completed."
           else
-            echo "$(date -u) ⚠️ Cluster '${{ env.CLUSTER_NAME }}' does not exist or has already been deleted."
+            echo "$(date -u) ⚠️ Cluster '${CLUSTER_NAME}' does not exist or is already deleted."
           fi
+
+      - name: 🧹 Force-delete leftover CloudFormation stacks (if any)
+        run: |
+          set -euo pipefail
+          CLUSTER="${CLUSTER_NAME}"
+          REGION="${REGION}"
+
+          # Explicit stacks (common names)
+          EXPLICIT_STACKS=(
+            "eksctl-${CLUSTER}-nodegroup-standard-workers"
+            "eksctl-${CLUSTER}-cluster"
+          )
+
+          # Try explicit names first
+          for s in "${EXPLICIT_STACKS[@]}"; do
+            if aws cloudformation describe-stacks --region "$REGION" --stack-name "$s" >/dev/null 2>&1; then
+              echo "Deleting explicit stack: $s"
+              aws cloudformation delete-stack --region "$REGION" --stack-name "$s" || true
+            fi
+          done
+
+          # Also catch any other eksctl nodegroup stacks for this cluster (e.g., different nodegroup names)
+          MATCHING_STACKS=$(aws cloudformation list-stacks --region "$REGION" \
+            --query 'StackSummaries[].StackName' --output text | tr '\t' '\n' \
+            | grep -E "^eksctl-${CLUSTER}-(cluster|nodegroup-)" || true)
+
+          if [ -n "$MATCHING_STACKS" ]; then
+            echo "Deleting matching stacks:"
+            echo "$MATCHING_STACKS"
+            for s in $MATCHING_STACKS; do
+              aws cloudformation delete-stack --region "$REGION" --stack-name "$s" || true
+            done
+
+            echo "Waiting for deletion to complete..."
+            for s in $MATCHING_STACKS; do
+              aws cloudformation wait stack-delete-complete --region "$REGION" --stack-name "$s" || true
+            done
+          else
+            echo "No matching orphaned stacks to delete."
+          fi
+
+      - name: ✅ Final verification
+        continue-on-error: true
+        run: |
+          set +e
+          echo "Verifying cluster and stacks are gone..."
+          aws eks describe-cluster --name "${CLUSTER_NAME}" --region "${REGION}" --query 'cluster.status'
+          aws cloudformation describe-stacks --region "${REGION}" \
+            --stack-name "eksctl-${CLUSTER_NAME}-cluster" \
+            --query 'Stacks[0].StackStatus'
+          echo "Done."
