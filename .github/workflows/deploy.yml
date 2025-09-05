@@ -1,22 +1,18 @@
-name: Test, Build & Deploy React Vite to EKS
+name: Build & Deploy React Vite to EKS
 
 on:
   push:
     branches: [cicd]
   workflow_dispatch:
 
-concurrency:
-  group: cicd-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   AWS_REGION: us-east-1
   CLUSTER_NAME: SaaS-cluster-v3
   IMAGE_NAME: saas-frontend
-  IMAGE_VERSION: v1.0.0
+  IMAGE_VERSION: v1.0.0 
   DOCKERHUB_USERNAME: obinna27
   NODE_COUNT: 2
-  K8S_VERSION: "1.31"
+  K8S_VERSION: 1.33
   NODE_TYPE: t3.small
   HELM_RELEASE_NAME: saas-helm
   CHART_NAME: bitnami/nginx
@@ -25,32 +21,16 @@ env:
 
 jobs:
   Test:
-    name: Run frontend tests
+    name: Running test suites
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
+
     steps:
-      - name: 🔄 Checkout Source Code
-        uses: actions/checkout@v4
-
-      - name: 🟢 Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: 📦 Install deps
-        run: npm ci
-
-      - name: ✅ Run tests
-        run: npm test --if-present
-
-  Build:
-    name: Build & push Docker image
+      - name: Test Case Start
+        run: npm test
+  deploy:
+    name: Deploy Frontend to EKS
     runs-on: ubuntu-latest
-    needs: Test
+
     steps:
       - name: 🔄 Checkout Source Code
         uses: actions/checkout@v4
@@ -71,17 +51,7 @@ jobs:
           file: ./frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-
-  deploy:
-    name: Deploy Frontend to EKS
-    runs-on: ubuntu-latest
-    needs: Build
-    steps:
-      - name: 🔄 Checkout Source Code
-        uses: actions/checkout@v4
+          tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
 
       - name: 🔐 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -90,72 +60,33 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: 📦 Install kubectl
+      - name: Install eksctl
         run: |
-          curl -sL https://storage.googleapis.com/kubernetes-release/release/$(curl -sL https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl -o kubectl
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/kubectl
-          kubectl version --client
-
-      - name: 📥 Install eksctl
-        run: |
-          curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" \
-          | tar xz -C /tmp
+          curl --silent --location "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
           sudo mv /tmp/eksctl /usr/local/bin
-          eksctl version
 
-      # 🔎 Detect orphaned eksctl stacks to avoid AlreadyExistsException
-      - name: 🧪 Preflight: detect orphaned eksctl stacks
-        id: preflight
-        run: |
-          set -e
-          STACK_CLUSTER="eksctl-${{ env.CLUSTER_NAME }}-cluster"
-          STACK_NG="eksctl-${{ env.CLUSTER_NAME }}-nodegroup-standard-workers"
-
-          cluster_exists=false
-          if aws eks describe-cluster --region "${{ env.AWS_REGION }}" --name "${{ env.CLUSTER_NAME }}" >/dev/null 2>&1; then
-            cluster_exists=true
-          fi
-
-          stack_exists=false
-          if aws cloudformation describe-stacks --region "${{ env.AWS_REGION }}" --stack-name "$STACK_CLUSTER" >/dev/null 2>&1; then
-            stack_exists=true
-          fi
-
-          echo "cluster_exists=$cluster_exists" >> $GITHUB_OUTPUT
-          echo "stack_exists=$stack_exists" >> $GITHUB_OUTPUT
-
-      - name: 🧹 Cleanup orphaned CloudFormation (if any)
-        if: steps.preflight.outputs.cluster_exists == 'false' && steps.preflight.outputs.stack_exists == 'true'
-        run: |
-          set -e
-          STACK_CLUSTER="eksctl-${{ env.CLUSTER_NAME }}-cluster"
-          STACK_NG="eksctl-${{ env.CLUSTER_NAME }}-nodegroup-standard-workers"
-
-          eksctl delete cluster --region "${{ env.AWS_REGION }}" --name "${{ env.CLUSTER_NAME }}" || true
-
-          aws cloudformation delete-stack --region "${{ env.AWS_REGION }}" --stack-name "$STACK_NG" || true
-          aws cloudformation delete-stack --region "${{ env.AWS_REGION }}" --stack-name "$STACK_CLUSTER" || true
-
-          aws cloudformation wait stack-delete-complete --region "${{ env.AWS_REGION }}" --stack-name "$STACK_NG" || true
-          aws cloudformation wait stack-delete-complete --region "${{ env.AWS_REGION }}" --stack-name "$STACK_CLUSTER" || true
 
       - name: 🧪 Check if EKS cluster exists
         id: cluster-check
         run: |
-          if aws eks describe-cluster --region "${{ env.AWS_REGION }}" --name "${{ env.CLUSTER_NAME }}" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Checking if EKS cluster '${{ env.CLUSTER_NAME }}' exists..."
+          if aws eks describe-cluster --region "${{ env.AWS_REGION }}" --name "${{ env.CLUSTER_NAME }}" > /dev/null 2>&1; then
+          echo "✅ Cluster exists. Skipping apply."
+          echo "exists=true" >> $GITHUB_OUTPUT
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+          echo "🚀 Cluster not found. Proceeding with apply."
+          echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: 🚀 Create EKS cluster (if missing)
+
+
+      - name: Create EKS cluster
         if: steps.cluster-check.outputs.exists == 'false'
         run: |
           eksctl create cluster \
             --name "${{ env.CLUSTER_NAME }}" \
-            --region "${{ env.AWS_REGION }}" \
             --version "${{ env.K8S_VERSION }}" \
+            --region "${{ env.AWS_REGION }}" \
             --nodegroup-name "standard-workers" \
             --node-type "${{ env.NODE_TYPE }}" \
             --nodes "${{ env.NODE_COUNT }}" \
@@ -163,11 +94,15 @@ jobs:
             --nodes-max 4 \
             --managed
 
-      - name: 🔗 Update kubeconfig
+      
+
+      - name: eks update-kubeconfig
         run: aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ env.CLUSTER_NAME }}"
 
+      
+
       - name: 📦 Install Helm
-        run: curl -s https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+        run: curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 
       - name: ➕ Add Helm Repositories
         run: |
@@ -175,26 +110,30 @@ jobs:
           helm repo add jetstack https://charts.jetstack.io
           helm repo update
 
-      - name: 🚀 Install NGINX Ingress Controller
+      - name: 🚀 Install NGINX Ingress Controller via Helm
         run: |
           helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
             --namespace ingress-nginx \
             --create-namespace \
             --set controller.publishService.enabled=true
-          kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx
 
-      - name: 🔐 Install cert-manager
+      - name: 🔐 Install cert-manager via Helm
         run: |
           helm upgrade --install cert-manager jetstack/cert-manager \
             --namespace cert-manager \
             --create-namespace \
             --version v1.15.0 \
             --set installCRDs=true
-          kubectl rollout status deployment/cert-manager -n cert-manager
-          kubectl rollout status deployment/cert-manager-webhook -n cert-manager
-          kubectl rollout status deployment/cert-manager-cainjector -n cert-manager
 
-      - name: 📜 Apply ClusterIssuer and Frontend manifests
+      - name: ⏳ Wait for cert-manager to be ready
+        run: |
+          kubectl rollout status deployment cert-manager -n cert-manager
+          kubectl rollout status deployment cert-manager-webhook -n cert-manager
+          kubectl rollout status deployment cert-manager-cainjector -n cert-manager
+
+      - name: 📜 Apply ClusterIssuer and Ingress
         run: |
           kubectl apply -f ./k8s/clusterissuer.yaml
           kubectl apply -f ./k8s/frontend.yaml
+
+
