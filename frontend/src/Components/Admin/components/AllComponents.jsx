@@ -21,7 +21,7 @@ import {
   totalPresentInventorySale,
   revenueByTimeRangee,
   refundAmounts,
-  profitAmount,
+
   LowStockManager,
   totalExpenses,
   profitForAllSale,
@@ -98,6 +98,7 @@ export function AdminDashboardPro({
   const [graphSales, setGraphSales] = useState([]);
   const [refund, setRefund] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  
 
   // loading / error states
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -309,9 +310,7 @@ export function AdminDashboardPro({
   console.log(Expenses);
   console.log(refundAmount);
 
-  const profit = useMemo(() => {
-    return profitAmount(sales);
-  }, [sales]);
+
 
   // Chart rows (by day), using graphSales
   const rows = useMemo(() => {
@@ -363,7 +362,7 @@ export function AdminDashboardPro({
     a.click();
     URL.revokeObjectURL(url);
   };
-
+console.log(refund[0]?.order.total_paid);
   /* -------------------------
      Render
   --------------------------*/

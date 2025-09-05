@@ -34,22 +34,12 @@ export const revenueByTimeRangee = (sales)=>{
 
 export const refundAmounts =(refund)=>{
     if (!Array.isArray(refund)) return 0;
-    return refund.reduce(
-      (sum, o) => sum +  toNum(o.order.total_paid),
+    return refund.reduce( 
+      (sum, o) => sum +  toNum(o?.order?.total_paid),
       0
     );
 }
 
-function costPriceSalePrice(sale){
-   
-    const che = sale?.items?.reduce((sum, s) => {
-      const unit = Number(s.amount) || 0;      // selling unit price
-      const cost = Number(s.costPrice) || 0;   // cost per unit
-      const qty  = Number(s.quantity) || 0;
-      return sum + (unit - cost) * qty;        // <-- return is essential
-    }, 0) ?? 0;
-   
-}
 
 export const profitForAllSale = (sales = []) => {
     return sales.reduce((grandTotal, sale) => {
@@ -61,10 +51,7 @@ export const profitForAllSale = (sales = []) => {
     }, 0);
   };
 
-export const profitAmount = (sales)=>{
-    if (!Array.isArray(sales)) return 0;
-    return sales.reduce((sum, o) => sum + toNum(o.profit), 0);
-}
+
 
 export const LowStockManager = (products)=>{
     return (products ?? []).filter(p => toNum(p.quantity) <= toNum(p.threshold));
