@@ -5,6 +5,10 @@ on:
     branches: [cicd]
   workflow_dispatch:
 
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   AWS_REGION: us-east-1
   CLUSTER_NAME: SaaS-cluster-v3
@@ -12,7 +16,6 @@ env:
   IMAGE_VERSION: v1.0.0
   DOCKERHUB_USERNAME: obinna27
   NODE_COUNT: 2
-  # Tip: set this to a version EKS supports, or omit to use eksctl default (see notes below)
   K8S_VERSION: "1.31"
   NODE_TYPE: t3.small
   HELM_RELEASE_NAME: saas-helm
@@ -26,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend          # <-- run npm in the right folder
+        working-directory: frontend
     steps:
       - name: 🔄 Checkout Source Code
         uses: actions/checkout@v4
@@ -68,7 +71,9 @@ jobs:
           file: ./frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
   deploy:
     name: Deploy Frontend to EKS
@@ -85,11 +90,55 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: 📦 Install kubectl
+        run: |
+          curl -sL https://storage.googleapis.com/kubernetes-release/release/$(curl -sL https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl -o kubectl
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
       - name: 📥 Install eksctl
         run: |
           curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" \
           | tar xz -C /tmp
           sudo mv /tmp/eksctl /usr/local/bin
+          eksctl version
+
+      # 🔎 Detect orphaned eksctl stacks to avoid AlreadyExistsException
+      - name: 🧪 Preflight: detect orphaned eksctl stacks
+        id: preflight
+        run: |
+          set -e
+          STACK_CLUSTER="eksctl-${{ env.CLUSTER_NAME }}-cluster"
+          STACK_NG="eksctl-${{ env.CLUSTER_NAME }}-nodegroup-standard-workers"
+
+          cluster_exists=false
+          if aws eks describe-cluster --region "${{ env.AWS_REGION }}" --name "${{ env.CLUSTER_NAME }}" >/dev/null 2>&1; then
+            cluster_exists=true
+          fi
+
+          stack_exists=false
+          if aws cloudformation describe-stacks --region "${{ env.AWS_REGION }}" --stack-name "$STACK_CLUSTER" >/dev/null 2>&1; then
+            stack_exists=true
+          fi
+
+          echo "cluster_exists=$cluster_exists" >> $GITHUB_OUTPUT
+          echo "stack_exists=$stack_exists" >> $GITHUB_OUTPUT
+
+      - name: 🧹 Cleanup orphaned CloudFormation (if any)
+        if: steps.preflight.outputs.cluster_exists == 'false' && steps.preflight.outputs.stack_exists == 'true'
+        run: |
+          set -e
+          STACK_CLUSTER="eksctl-${{ env.CLUSTER_NAME }}-cluster"
+          STACK_NG="eksctl-${{ env.CLUSTER_NAME }}-nodegroup-standard-workers"
+
+          eksctl delete cluster --region "${{ env.AWS_REGION }}" --name "${{ env.CLUSTER_NAME }}" || true
+
+          aws cloudformation delete-stack --region "${{ env.AWS_REGION }}" --stack-name "$STACK_NG" || true
+          aws cloudformation delete-stack --region "${{ env.AWS_REGION }}" --stack-name "$STACK_CLUSTER" || true
+
+          aws cloudformation wait stack-delete-complete --region "${{ env.AWS_REGION }}" --stack-name "$STACK_NG" || true
+          aws cloudformation wait stack-delete-complete --region "${{ env.AWS_REGION }}" --stack-name "$STACK_CLUSTER" || true
 
       - name: 🧪 Check if EKS cluster exists
         id: cluster-check
@@ -106,13 +155,13 @@ jobs:
           eksctl create cluster \
             --name "${{ env.CLUSTER_NAME }}" \
             --region "${{ env.AWS_REGION }}" \
+            --version "${{ env.K8S_VERSION }}" \
             --nodegroup-name "standard-workers" \
             --node-type "${{ env.NODE_TYPE }}" \
             --nodes "${{ env.NODE_COUNT }}" \
             --nodes-min 1 \
             --nodes-max 4 \
-            --managed \
-            --version "${{ env.K8S_VERSION }}"
+            --managed
 
       - name: 🔗 Update kubeconfig
         run: aws eks --region "${{ env.AWS_REGION }}" update-kubeconfig --name "${{ env.CLUSTER_NAME }}"
