@@ -1,4 +1,4 @@
-name: Build & Deploy React Vite to EKS
+name: Test, Build & Deploy React Vite to EKS
 
 on:
   push:
@@ -20,14 +20,19 @@ env:
   NAMESPACE: default
 
 jobs:
-  deploy:
-    name: Deploy Frontend to EKS
+  Test: 
+    name: Running Test Suites
     runs-on: ubuntu-latest
-
-    steps:
+    steps: 
       - name: 🔄 Checkout Source Code
         uses: actions/checkout@v4
-
+        
+      - name: Test cases running...
+        run: npm test
+  Build: 
+    name: Starting the build for containers
+    runs-on: ubuntu-latest
+    steps:
       - name: ⚙️ Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -45,7 +50,12 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
+      
+  deploy:
+    name: Deploy Frontend to EKS
+    runs-on: ubuntu-latest
 
+    steps:
       - name: 🔐 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
